@@ -1,0 +1,12 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Ejecutar Main",
+            "request": "launch",
+            "mainClass": "com.sv.grupo2.Main",
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

@@ -1,6 +1,7 @@
 package com.sv.grupo2;
 
 import com.sv.grupo2.bank.Bank;
+import com.sv.grupo2.model.Customer;
 import com.sv.grupo2.model.Receipt;
 import com.sv.grupo2.transaction.InterBankTransfer;
 import com.sv.grupo2.transaction.LocalDeposit;
@@ -19,32 +20,48 @@ public class Main {
     public static void main(String[] args) throws Exception {
 
         System.out.println("╔══════════════════════════════════════════════════╗");
-        System.out.println("║     SISTEMA BANCARIO CONCURRENTE - MULTIBANCO   ║");
+        System.out.println("║     SISTEMA BANCARIO CONCURRENTE - MULTIBANCO    ║");
         System.out.println("╚══════════════════════════════════════════════════╝");
         System.out.println();
 
         Bank bancoA = new Bank("BANCO_A", 10);
         Bank bancoB = new Bank("BANCO_B", 10);
 
-        bancoA.createAccount("A001", 5000);
-        bancoA.createAccount("A002", 3000);
-        bancoA.createAccount("A003", 2000);
-        bancoA.createAccount("A004", 10000);
-        bancoA.createAccount("A005", 1500);
+        // =========================================================================
+        // 1. REGISTRO INICIAL DE CLIENTES (CREATE)
+        // =========================================================================
+        bancoA.registerCustomer("05123456-7", "Carlos Samayoa", "carlos@mail.com", "7111-2222");
+        bancoA.registerCustomer("06123456-8", "Génesis Flores", "genesis@mail.com", "7222-3333");
+        bancoA.registerCustomer("07123456-9", "Rodrigo Sánchez", "rodrigo@mail.com", "7333-4444");
 
-        bancoB.createAccount("B001", 4000);
-        bancoB.createAccount("B002", 7000);
-        bancoB.createAccount("B003", 2500);
-        bancoB.createAccount("B004", 6000);
-        bancoB.createAccount("B005", 3500);
+        bancoB.registerCustomer("08123456-0", "Gerson Bermúdez", "gerson@mail.com", "7444-5555");
+        bancoB.registerCustomer("09123456-1", "Jonathan Amaya", "jonathan@mail.com", "7555-6666");
+
+        // =========================================================================
+        // 2. CREACIÓN DE CUENTAS VINCULADAS A TITULARES
+        // =========================================================================
+        bancoA.createAccount("A001", "05123456-7", 5000);
+        bancoA.createAccount("A002", "06123456-8", 3000);
+        bancoA.createAccount("A003", "07123456-9", 2000);
+        bancoA.createAccount("A004", "05123456-7", 10000);
+        bancoA.createAccount("A005", null, 1500); // Cuenta empresarial sin titular individual
+
+        bancoB.createAccount("B001", "08123456-0", 4000);
+        bancoB.createAccount("B002", "09123456-1", 7000);
+        bancoB.createAccount("B003", "08123456-0", 2500);
+        bancoB.createAccount("B004", null, 6000);
+        bancoB.createAccount("B005", null, 3500);
 
         double initialTotal = bancoA.getTotalBalance() + bancoB.getTotalBalance();
-        System.out.printf("SALDO INICIAL TOTAL: $%.2f (Banco A: $%.2f + Banco B: $%.2f)%n%n",
+        System.out.printf("%nSALDO INICIAL TOTAL: $%.2f (Banco A: $%.2f + Banco B: $%.2f)%n%n",
                 initialTotal, bancoA.getTotalBalance(), bancoB.getTotalBalance());
 
+        // =========================================================================
+        // 3. SIMULACIÓN DE TRANSACCIONES CONCURRENTES (55 OPERACIONES)
+        // =========================================================================
         List<Future<Receipt>> futures = new ArrayList<>();
-        String[] accountsA = {"A001", "A002", "A003", "A004", "A005"};
-        String[] accountsB = {"B001", "B002", "B003", "B004", "B005"};
+        String[] accountsA = { "A001", "A002", "A003", "A004", "A005" };
+        String[] accountsB = { "B001", "B002", "B003", "B004", "B005" };
 
         for (int i = 0; i < NUM_CLIENTS; i++) {
             double amount = 100 + RANDOM.nextDouble() * 900;
@@ -100,6 +117,9 @@ public class Main {
         System.out.println("═".repeat(58));
         System.out.println();
 
+        // =========================================================================
+        // 4. PROCESAMIENTO DE RECIBOS Y AUDITORÍA CONTABLE
+        // =========================================================================
         int success = 0, failed = 0, rolledBack = 0;
         double totalDeposited = 0, totalWithdrawn = 0;
         for (Future<Receipt> f : futures) {
@@ -150,6 +170,44 @@ public class Main {
 
         System.out.println("═".repeat(58));
         System.out.println("  La auditoria " + (auditPass ? "PASO ✓" : "FALLO ✗ - inconsistencia detectada") + "!");
+        System.out.println("═".repeat(58));
+
+        // =========================================================================
+        // 5. DEMOSTRACIÓN COMPLETA DEL CRUD DE CLIENTES (OPERACIONES C-R-U-D)
+        // =========================================================================
+        System.out.println();
+        System.out.println("╔══════════════════════════════════════════════════╗");
+        System.out.println("║        PRUEBA DE CRUD DE CLIENTES / TITULARES    ║");
+        System.out.println("╚══════════════════════════════════════════════════╝");
+
+        // [C] CREATE: Registrar nuevo cliente
+        System.out.println("\n--- 1. CREATE: Registrando nuevo cliente de prueba ---");
+        bancoA.registerCustomer("09998888-1", "Cliente Temporal", "temporal@mail.com", "7999-8888");
+
+        // [R] READ: Consultar cliente registrado y listar clientes
+        System.out.println("\n--- 2. READ: Consultando cliente recién creado ---");
+        Customer temporal = bancoA.getCustomer("09998888-1");
+        System.out.println("Resultado de búsqueda: " + temporal);
+        bancoA.printCustomers();
+
+        // [U] UPDATE: Modificar datos de contacto
+        System.out.println("\n--- 3. UPDATE: Modificando correo y teléfono del cliente ---");
+        bancoA.updateCustomerContact("09998888-1", "nuevo.correo@empresa.com", "7000-0000");
+        System.out.println("Cliente actualizado: " + bancoA.getCustomer("09998888-1"));
+
+        // [D] DELETE: Prueba de regla de negocio (con y sin saldo)
+        System.out.println("\n--- 4. DELETE: Demostración de regla de baja de clientes ---");
+
+        // Caso 4.1: Intentar borrar cliente con cuentas que tienen saldo (Carlos Samayoa tiene cuenta A001 y A004)
+        System.out.println("-> Intento 1: Eliminar a Carlos Samayoa (Tiene cuentas con dinero):");
+        bancoA.deleteCustomer("05123456-7");
+
+        // Caso 4.2: Borrar cliente temporal que no tiene cuentas con saldo
+        System.out.println("\n-> Intento 2: Eliminar a Cliente Temporal (Sin cuentas activas):");
+        bancoA.deleteCustomer("09998888-1");
+
+        System.out.println("\nLista final de clientes de Banco A:");
+        bancoA.printCustomers();
         System.out.println("═".repeat(58));
     }
 }
