@@ -1,6 +1,7 @@
 package com.sv.grupo2.transaction;
 
 import com.sv.grupo2.bank.Bank;
+import com.sv.grupo2.model.AccountStatus;
 import com.sv.grupo2.model.BankAccount;
 import com.sv.grupo2.model.Receipt;
 import com.sv.grupo2.model.TransactionStatus;
@@ -45,18 +46,61 @@ public class InterBankTransfer extends Transaction {
             return r;
         }
 
+        // Validación de estados
+        synchronized (srcAcc) {
+            if (srcAcc.getStatus() == AccountStatus.BLOQUEADA) {
+                Receipt r = new Receipt("TRANSFER", accountId, destAccountId, amount,
+                        TransactionStatus.FAILED, "Cuenta origen bloqueada: transferencias no permitidas");
+                saveReceipt(r);
+                System.out.printf("[LOG] %s | FIN     | InterBankTransfer | %s | FALLO: origen bloqueada%n",
+                        threadName, accountId);
+                return r;
+            }
+            if (srcAcc.getStatus() == AccountStatus.INACTIVA) {
+                Receipt r = new Receipt("TRANSFER", accountId, destAccountId, amount,
+                        TransactionStatus.FAILED, "Cuenta origen inactiva: transferencias no permitidas");
+                saveReceipt(r);
+                System.out.printf("[LOG] %s | FIN     | InterBankTransfer | %s | FALLO: origen inactiva%n",
+                        threadName, accountId);
+                return r;
+            }
+            if (srcAcc.getDailyTransferLimit() > 0 &&
+                    (srcAcc.getTransferredToday() + amount > srcAcc.getDailyTransferLimit())) {
+                String msg = String.format("Límite diario de transferencias excedido (Acumulado: $%.2f + Monto: $%.2f > Límite: $%.2f)",
+                        srcAcc.getTransferredToday(), amount, srcAcc.getDailyTransferLimit());
+                Receipt r = new Receipt("TRANSFER", accountId, destAccountId, amount,
+                        TransactionStatus.FAILED, msg);
+                saveReceipt(r);
+                System.out.printf("[LOG] %s | FIN     | InterBankTransfer | %s | FALLO: límite diario excedido%n",
+                        threadName, accountId);
+                return r;
+            }
+        }
+
+        synchronized (dstAcc) {
+            if (dstAcc.getStatus() == AccountStatus.INACTIVA) {
+                Receipt r = new Receipt("TRANSFER", accountId, destAccountId, amount,
+                        TransactionStatus.FAILED, "Cuenta destino inactiva");
+                saveReceipt(r);
+                System.out.printf("[LOG] %s | FIN     | InterBankTransfer | %s | FALLO: destino inactiva%n",
+                        threadName, destAccountId);
+                return r;
+            }
+        }
+
         boolean withdrawn;
         synchronized (srcAcc) {
-            withdrawn = srcAcc.withdraw(amount);
+            withdrawn = srcAcc.executeTransferDebit(amount);
         }
 
         if (!withdrawn) {
             Receipt r = new Receipt("TRANSFER", accountId, destAccountId, amount,
                     TransactionStatus.FAILED,
-                    String.format("Saldo insuficiente en origen: %.2f < %.2f", srcAcc.getBalance(), amount));
+                    String.format("Saldo insuficiente en origen: Disp: $%.2f < Monto: $%.2f",
+                            srcAcc.getAvailableFunds(), amount));
             saveReceipt(r);
-            System.out.printf("[LOG] %s | FIN     | InterBankTransfer | %s -> %s | FALLO: saldo=%.2f < monto=%.2f%n",
-                    threadName, accountId, destAccountId, srcAcc.getBalance(), amount);
+            System.out.printf("[LOG] %s | FIN     | InterBankTransfer | %s -> %s | FALLO: saldo disp=%.2f < monto=%.2f%n",
+                    threadName, accountId, destAccountId, srcAcc.getAvailableFunds(), amount);
             return r;
         }
 
@@ -96,7 +140,7 @@ public class InterBankTransfer extends Transaction {
                     destBank.getAccount(destAccountId).getBalance());
         } else {
             synchronized (srcAcc) {
-                srcAcc.deposit(amount);
+                srcAcc.rollbackTransferDebit(amount);
             }
             finalReceipt = new Receipt("TRANSFER", accountId, destAccountId, amount,
                     TransactionStatus.ROLLED_BACK,
