@@ -1,6 +1,7 @@
 package com.sv.grupo2.transaction;
 
 import com.sv.grupo2.bank.Bank;
+import com.sv.grupo2.model.AccountStatus;
 import com.sv.grupo2.model.BankAccount;
 import com.sv.grupo2.model.Receipt;
 import com.sv.grupo2.model.TransactionStatus;
@@ -27,15 +28,32 @@ public class LocalWithdraw extends Transaction {
             return r;
         }
 
-        boolean ok = acc.withdraw(amount);
-        TransactionStatus status = ok ? TransactionStatus.SUCCESS : TransactionStatus.FAILED;
-        String msg = ok ? "Retiro exitoso" : "Saldo insuficiente";
+        TransactionStatus status;
+        String msg;
+        boolean ok = false;
+
+        synchronized (acc) {
+            if (acc.getStatus() == AccountStatus.BLOQUEADA) {
+                status = TransactionStatus.FAILED;
+                msg = "Cuenta bloqueada: retiros no permitidos";
+            } else if (acc.getStatus() == AccountStatus.INACTIVA) {
+                status = TransactionStatus.FAILED;
+                msg = "Cuenta inactiva: retiros no permitidos";
+            } else {
+                ok = acc.withdraw(amount);
+                status = ok ? TransactionStatus.SUCCESS : TransactionStatus.FAILED;
+                msg = ok ? "Retiro exitoso"
+                         : String.format("Saldo insuficiente (Saldo: $%.2f, Disp: $%.2f < Monto: $%.2f)",
+                                acc.getBalance(), acc.getAvailableFunds(), amount);
+            }
+        }
+
         if (ok) {
             System.out.printf("[LOG] %s | FIN     | LocalWithdraw  | cuenta=%s | EXITO | saldo=%.2f%n",
                     threadName, accountId, acc.getBalance());
         } else {
-            System.out.printf("[LOG] %s | FIN     | LocalWithdraw  | cuenta=%s | FALLO: saldo=%.2f < monto=%.2f%n",
-                    threadName, accountId, acc.getBalance(), amount);
+            System.out.printf("[LOG] %s | FIN     | LocalWithdraw  | cuenta=%s | FALLO: %s%n",
+                    threadName, accountId, msg);
         }
 
         Receipt r = new Receipt("WITHDRAW", accountId, null, amount, status, msg);
