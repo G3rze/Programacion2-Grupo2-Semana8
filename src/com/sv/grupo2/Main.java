@@ -17,6 +17,9 @@ import java.util.Random;
 import java.util.Scanner;
 import java.util.concurrent.Future;
 
+import com.sv.grupo2.bank.BeneficiaryManager;
+import com.sv.grupo2.model.Beneficiary;
+
 public class Main {
 
     private static final Random RANDOM = new Random(42);
@@ -73,6 +76,7 @@ public class Main {
     private static void runInteractiveMenu(BankingSystem system) {
         Scanner scanner = new Scanner(System.in);
         boolean running = true;
+        BeneficiaryManager beneficiaryManager = new BeneficiaryManager(system);
 
         while (running) {
             System.out.println();
@@ -88,8 +92,9 @@ public class Main {
             System.out.println("  7. [DELETE] Cierre / Cancelación de cuenta (Regla saldo cero)");
             System.out.println("  8. [STRESS] Ejecutar simulación concurrente multihilo");
             System.out.println("  9. [CRUD]   Gestionar clientes");
-            System.out.println(" 10. Salir del sistema");
-            System.out.print("Seleccione una opción (1-10): ");
+            System.out.println(" 10. [CRUD]   Gestionar beneficiarios");
+            System.out.println(" 11. Salir del sistema");
+            System.out.print("Seleccione una opción (1-11): ");
 
             String input = scanner.nextLine().trim();
             switch (input) {
@@ -102,7 +107,8 @@ public class Main {
                 case "7" -> handleDeleteAccount(scanner, system);
                 case "8" -> runConcurrentSimulation(system);
                 case "9" -> handleCustomerCrud(scanner, system);
-                case "10" -> {
+                case "10" -> handleBeneficiaryCrud(scanner, beneficiaryManager);
+                case "11" -> {
                     System.out.println("\n[SISTEMA] Cerrando operaciones bancarias...");
                     running = false;
                 }
@@ -152,6 +158,59 @@ public class Main {
                     String id = scanner.nextLine().trim();
                     System.out.println(bank.deleteCustomer(id)
                             ? "Cliente eliminado correctamente." : "No se puede eliminar: no existe o conserva saldo pendiente.");
+                }
+                default -> System.out.println("Operación inválida.");
+            }
+        } catch (Exception e) {
+            System.out.println("[ERROR] " + e.getMessage());
+        }
+    }
+
+    private static void handleBeneficiaryCrud(Scanner scanner, BeneficiaryManager manager) {
+        System.out.println("\n--- CRUD DE BENEFICIARIOS FRECUENTES ---");
+        System.out.print("ID de la cuenta de origen: ");
+        String originAccountId = scanner.nextLine().trim().toUpperCase();
+        System.out.println("1. CREATE  2. READ  3. UPDATE  4. DELETE");
+        System.out.print("Seleccione una operación: ");
+        String option = scanner.nextLine().trim();
+        try {
+            switch (option) {
+                case "1" -> {
+                    System.out.print("Alias del beneficiario: ");
+                    String alias = scanner.nextLine().trim();
+                    System.out.print("Banco del beneficiario (BANCO_A, BANCO_B): ");
+                    String bankId = scanner.nextLine().trim().toUpperCase();
+                    System.out.print("ID de la cuenta destino: ");
+                    String destinationAccountId = scanner.nextLine().trim().toUpperCase();
+                    System.out.println(manager.addBeneficiary(originAccountId, alias, bankId, destinationAccountId)
+                            ? "Beneficiario registrado correctamente." : "No se pudo registrar el beneficiario.");
+                }
+                case "2" -> {
+                    List<Beneficiary> list = manager.getBeneficiaries(originAccountId);
+                    if (list.isEmpty()) {
+                        System.out.println("La cuenta '" + originAccountId + "' no tiene beneficiarios registrados.");
+                    } else {
+                        System.out.println("\nBeneficiarios de la cuenta " + originAccountId + ":");
+                        for (Beneficiary beneficiary : list) System.out.println("  " + beneficiary);
+                    }
+                }
+                case "3" -> {
+                    System.out.print("Alias actual del beneficiario: ");
+                    String currentAlias = scanner.nextLine().trim();
+                    System.out.print("Nuevo alias: ");
+                    String newAlias = scanner.nextLine().trim();
+                    System.out.print("Nuevo banco (BANCO_A, BANCO_B): ");
+                    String newBankId = scanner.nextLine().trim().toUpperCase();
+                    System.out.print("Nueva cuenta destino: ");
+                    String newAccountId = scanner.nextLine().trim().toUpperCase();
+                    System.out.println(manager.updateBeneficiary(originAccountId, currentAlias, newAlias, newBankId, newAccountId)
+                            ? "Beneficiario actualizado correctamente." : "Beneficiario no encontrado.");
+                }
+                case "4" -> {
+                    System.out.print("Alias del beneficiario a eliminar: ");
+                    String alias = scanner.nextLine().trim();
+                    System.out.println(manager.deleteBeneficiary(originAccountId, alias)
+                            ? "Beneficiario eliminado correctamente." : "Beneficiario no encontrado.");
                 }
                 default -> System.out.println("Operación inválida.");
             }
