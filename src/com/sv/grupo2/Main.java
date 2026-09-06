@@ -81,7 +81,8 @@ public class Main {
         while (running) {
             System.out.println();
             System.out.println("╔══════════════════════════════════════════════════════════╗");
-            System.out.println("║       SISTEMA BANCARIO CONCURRENTE - GRUPO #2            ║");
+            System.out.println("║          SISTEMA BANCARIO CONCURRENTE  - GRUPO 2         ║");
+            System.out.println("║                       MENU PRINCIPAL                     ║");
             System.out.println("╚══════════════════════════════════════════════════════════╝");
             System.out.println("  1. [CREATE] Apertura de nueva cuenta");
             System.out.println("  2. [READ]   Consultar cuenta específica por ID");
